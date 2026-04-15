@@ -1,0 +1,413 @@
+{% extends "base_template.html" %}
+{% from '_macros.html' import campo %}
+{% block title %}Solicitudes de Ventas{% endblock %}
+{% block page_title %}Módulo de Ventas — Solicitudes{% endblock %}
+
+{% block content %}
+<section class="section">
+	{% set ns = namespace(total=0, pendientes=0, aprobadas=0, rechazadas=0) %}
+	{% set ns_stock = namespace(bajo=0) %}
+	{% for producto in productos %}
+		{% if productos_bajo_stock.get(producto.id_producto) %}
+			{% set ns_stock.bajo = ns_stock.bajo + 1 %}
+		{% endif %}
+	{% endfor %}
+	{% for s in solicitudes %}
+		{% set ns.total = ns.total + 1 %}
+		{% if s.estado == 'PENDIENTE' %}
+			{% set ns.pendientes = ns.pendientes + 1 %}
+		{% elif s.estado == 'APROBADA' %}
+			{% set ns.aprobadas = ns.aprobadas + 1 %}
+		{% elif s.estado == 'RECHAZADA' %}
+			{% set ns.rechazadas = ns.rechazadas + 1 %}
+		{% endif %}
+	{% endfor %}
+
+	<div class="ops-hero">
+		<p class="ops-meta mb-1">Panel de ventas</p>
+		<h2 class="ops-hero-title">Solicitudes de Producción</h2>
+		<p class="ops-hero-text">
+			Registra solicitudes cuando detectes riesgo de quiebre de stock. Cada solicitud nace
+			en estado pendiente y queda trazada para producción.
+		</p>
+	</div>
+
+	<div class="ops-kpi-grid compact">
+		<article class="ops-kpi">
+			<p class="ops-kpi-label">Solicitudes totales</p>
+			<p class="ops-kpi-value">{{ ns.total }}</p>
+			<p class="ops-kpi-sub">Histórico de ventas</p>
+		</article>
+		<article class="ops-kpi">
+			<p class="ops-kpi-label">Pendientes</p>
+			<p class="ops-kpi-value text-warning">{{ ns.pendientes }}</p>
+			<p class="ops-kpi-sub">En espera de revisión</p>
+		</article>
+		<article class="ops-kpi">
+			<p class="ops-kpi-label">Aprobadas</p>
+			<p class="ops-kpi-value text-success">{{ ns.aprobadas }}</p>
+			<p class="ops-kpi-sub">Disponibles para orden</p>
+		</article>
+		<article class="ops-kpi">
+			<p class="ops-kpi-label">Rechazadas</p>
+			<p class="ops-kpi-value text-danger">{{ ns.rechazadas }}</p>
+			<p class="ops-kpi-sub">Sin seguimiento productivo</p>
+		</article>
+	</div>
+
+	<div class="ops-card">
+		<div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+			<div>
+				<h3 class="ops-card-title mb-1">Bandeja de solicitudes</h3>
+				<p class="text-secondary mb-0 small">
+					Solo puedes editar tus solicitudes mientras permanezcan en estado pendiente.
+				</p>
+			</div>
+			<button
+				type="button"
+				class="btn btn-sm"
+				data-bs-toggle="modal"
+				data-bs-target="#modalNuevaSolicitud">
+				<i class="bi bi-plus-lg me-1"></i>
+				Nueva solicitud
+			</button>
+		</div>
+
+		<div class="ops-toolbar mt-3">
+			<form method="get" class="ops-toolbar w-100 mb-0">
+				<div class="ops-input-wrap">
+					<i class="bi bi-search"></i>
+					<input
+						type="text"
+						name="q"
+						value="{{ busqueda or '' }}"
+						placeholder="Buscar por id o producto" />
+				</div>
+				<select name="estado" style="max-width: 180px">
+					<option value="TODOS" {{ 'selected' if estado_filtro == 'TODOS' else '' }}>
+						Todos
+					</option>
+					<option value="PENDIENTE" {{ 'selected' if estado_filtro == 'PENDIENTE' else '' }}>
+						Pendiente
+					</option>
+					<option value="APROBADA" {{ 'selected' if estado_filtro == 'APROBADA' else '' }}>
+						Aprobada
+					</option>
+					<option value="RECHAZADA" {{ 'selected' if estado_filtro == 'RECHAZADA' else '' }}>
+						Rechazada
+					</option>
+				</select>
+				<button type="submit" class="btn btn-sm btn-outline-primary">Filtrar</button>
+			</form>
+		</div>
+
+		{% if ns_stock.bajo %}
+		<div class="prod-orders-alert danger mb-3">
+			<i class="bi bi-exclamation-triangle-fill"></i>
+			<div>
+				<strong>{{ ns_stock.bajo }} producto{{ 's' if ns_stock.bajo != 1 else '' }} con stock bajo</strong>
+				<div class="small">Úsalos como referencia para justificar solicitudes urgentes.</div>
+			</div>
+		</div>
+		{% else %}
+		<div class="prod-orders-alert success mb-3">
+			<i class="bi bi-check-circle-fill"></i>
+			<div>
+				<strong>Inventario estable</strong>
+				<div class="small">No hay productos por debajo de su mínimo configurado.</div>
+			</div>
+		</div>
+		{% endif %}
+
+		<div class="ops-table table-responsive">
+			<table class="table table-hover align-middle mb-0">
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>Producto</th>
+						<th>Cant. solicitada</th>
+						<th>Stock actual</th>
+						<th>Solicitante</th>
+						<th>Fecha solicitud</th>
+						<th>Estado</th>
+						<th>Resuelto por</th>
+						<th>Acciones</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for s in solicitudes %}
+					{% set producto = s.producto %}
+					{% set orden_vinculada = s.ordenes[0] if s.ordenes else none %}
+					{% set stock_actual = producto.cantidad_disponible if producto else 0 %}
+					{% set stock_minimo = producto.stock_minimo if producto else 0 %}
+					<tr>
+						<td><strong class="text-primary">SOL-{{ '%03d'|format(s.id_solicitud) }}</strong></td>
+						<td>
+							<div class="d-flex align-items-center gap-2">
+								<div class="prod-orders-product-icon">
+									<i class="bi bi-send-fill"></i>
+								</div>
+								<div>
+									<div class="prod-orders-product-name">
+										{{ producto.nombre if producto else 'Producto' }}
+									</div>
+									<div class="prod-orders-product-sub">
+										Prod. terminado
+										{% if s.id_pedido %}
+										· PED-{{ '%04d'|format(s.id_pedido) }}
+										{% endif %}
+									</div>
+								</div>
+							</div>
+						</td>
+						<td><strong>{{ s.cantidad }} pzas</strong></td>
+						<td>
+							{% if stock_actual <= 0 %}
+								<span class="ops-chip danger">0 pzas</span>
+							{% elif stock_actual < stock_minimo %}
+								<span class="ops-chip warning">{{ stock_actual }} pzas ↓</span>
+							{% else %}
+								<span class="ops-chip success">{{ stock_actual }} pzas ✓</span>
+							{% endif %}
+						</td>
+						<td>
+							{{ s.usuario_solicita.persona.nombre if s.usuario_solicita and s.usuario_solicita.persona else (s.usuario_solicita.username if s.usuario_solicita else '—') }}
+						</td>
+						<td>{{ s.fecha_solicitud.strftime('%Y-%m-%d') }}</td>
+						<td>
+							<span
+								class="ops-chip {{ 'warning' if s.estado == 'PENDIENTE' else 'success' if s.estado == 'APROBADA' else 'danger' }}">
+								{{ s.estado }}
+							</span>
+						</td>
+						<td>
+							{% if s.usuario_resuelve and s.usuario_resuelve.persona %}
+								{{ s.usuario_resuelve.persona.nombre }}
+							{% elif s.usuario_resuelve %}
+								{{ s.usuario_resuelve.username }}
+							{% else %}
+								—
+							{% endif %}
+						</td>
+						<td>
+							<div class="btn-action-group">
+								<button
+									type="button"
+									class="btn btn-sm btn-outline-primary btn-icon-sm js-editar-solicitud"
+									title="Editar solicitud"
+									data-id="{{ s.id_solicitud }}"
+									data-producto="{{ producto.nombre if producto else 'Producto' }}"
+									data-cantidad="{{ s.cantidad }}"
+									data-observaciones="{{ s.observaciones or '' }}"
+									{{ 'disabled' if s.estado != 'PENDIENTE' else '' }}>
+									<i class="bi bi-pencil-fill"></i>
+								</button>
+								{% if orden_vinculada %}
+									<span class="ops-chip neutral" title="Orden vinculada">
+										<i class="bi bi-link-45deg"></i>
+										ORD-{{ '%03d'|format(orden_vinculada.id_orden) }}
+									</span>
+								{% elif s.estado == 'APROBADA' %}
+									<span class="ops-chip warning">Lista para orden</span>
+								{% endif %}
+							</div>
+						</td>
+					</tr>
+					{% else %}
+					<tr>
+						<td colspan="9" class="text-center py-4">No hay solicitudes registradas.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<div class="modal fade" id="modalNuevaSolicitud" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+			<div class="modal-content prod-orders-modal-content">
+				<div class="modal-header prod-orders-modal-header">
+					<h5 class="modal-title fw-bold">
+						<i class="bi bi-send me-2"></i>
+						Nueva Solicitud de Producción
+					</h5>
+					<button
+						type="button"
+						class="btn-close"
+						data-bs-dismiss="modal"
+						aria-label="Cerrar"></button>
+				</div>
+				<form method="post" id="formNuevaSolicitud" novalidate>
+					<input type="hidden" name="action" value="crear" />
+					<div class="modal-body prod-orders-modal-body">
+						<div class="prod-orders-section-card">
+							<div class="prod-orders-section-title">
+								<i class="bi bi-info-circle-fill"></i>
+								Datos de la solicitud
+							</div>
+							<div class="ops-grid">
+								<div>
+									<label class="form-label fw-semibold" for="nuevoProducto">Producto <span class="text-danger">*</span></label>
+									{{ form_crear.id_producto(class="form-select" + (" is-invalid" if form_crear.id_producto.errors else ""), id="nuevoProducto", required=True) }}
+									{% if form_crear.id_producto.errors %}
+									<div class="invalid-feedback">{{ form_crear.id_producto.errors[0] }}</div>
+									{% endif %}
+								</div>
+								<div>
+									{{ campo(form_crear.cantidad, id='nuevoCantidad', placeholder='Ej. 24', min='1', step='1') }}
+								</div>
+								<div>
+									{{ campo(form_crear.observaciones, id='nuevoObs', placeholder='Motivo, pedido especial...') }}
+								</div>
+						</div>
+						<div id="nuevoStockPreview" class="mt-3" style="display: none;"></div>
+					</div>
+					<div class="prod-orders-info-banner mb-0">
+						<i class="bi bi-info-circle-fill"></i>
+						<span>
+							La solicitud nace en estado <strong>PENDIENTE</strong> y producción será quien la
+							revise, apruebe o rechace.
+						</span>
+					</div>
+					<div class="modal-footer prod-orders-modal-footer">
+						<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+							Cancelar
+						</button>
+						<button type="submit" class="btn btn-primary">
+							<i class="bi bi-send-fill me-1"></i>
+							Enviar solicitud
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="modalEditarSolicitud" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-md modal-dialog-centered">
+			<div class="modal-content prod-orders-modal-content">
+				<div class="modal-header prod-orders-modal-header">
+					<h5 class="modal-title fw-bold">
+						<i class="bi bi-pencil-square me-2"></i>
+						Editar solicitud pendiente
+					</h5>
+					<button
+						type="button"
+						class="btn-close"
+						data-bs-dismiss="modal"
+						aria-label="Cerrar"></button>
+				</div>
+				<form method="post" novalidate>
+					<input type="hidden" name="action" value="editar" />
+					<input type="hidden" name="{{ form_editar.id_solicitud.name }}" id="editarSolicitudId" value="{{ form_editar.id_solicitud.data or '' }}" required />
+					<div class="modal-body prod-orders-modal-body">
+						<div class="prod-orders-section-card mb-3">
+							<div class="prod-orders-section-title">
+								<i class="bi bi-box2-heart-fill"></i>
+								Producto
+							</div>
+							<div class="fw-bold" id="editarSolicitudProducto">—</div>
+						</div>
+						<div class="ops-grid">
+							<div>
+								{{ campo(form_editar.cantidad, id='editarSolicitudCantidad', min='1', step='1') }}
+							</div>
+							<div>
+								{{ campo(form_editar.observaciones, id='editarSolicitudObs', placeholder='Actualiza el contexto...') }}
+							</div>
+						</div>
+						<div class="prod-orders-info-banner mb-0 mt-3">
+							<i class="bi bi-lock-fill"></i>
+							<span>Solo las solicitudes en estado <strong>PENDIENTE</strong> pueden editarse.</span>
+						</div>
+					</div>
+					<div class="modal-footer prod-orders-modal-footer">
+						<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+							Cancelar
+						</button>
+						<button type="submit" class="btn btn-primary">Guardar cambios</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<script type="application/json" id="productosData">
+		[
+		  {% for p in productos %}
+			{
+			  "id_producto": {{ p.id_producto }},
+			  "nombre": "{{ p.nombre|replace('\"', '\\\"') }}",
+			  "stock": {{ p.cantidad_disponible }},
+			  "min": {{ p.stock_minimo }},
+			  "bajo": {{ 1 if productos_bajo_stock.get(p.id_producto) else 0 }}
+			}
+			{% if not loop.last %},{% endif %}
+		  {% endfor %}
+		]
+	</script>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+	const nuevoProductoSelect = document.getElementById('nuevoProducto');
+	const nuevoStockPreview = document.getElementById('nuevoStockPreview');
+	const productosMeta = JSON.parse(document.getElementById('productosData').textContent);
+	const nuevoModal = new bootstrap.Modal(document.getElementById('modalNuevaSolicitud'));
+	const editarModal = new bootstrap.Modal(document.getElementById('modalEditarSolicitud'));
+
+	function bindEvents() {
+		document.querySelectorAll('.js-editar-solicitud').forEach((buttonElement) => {
+			buttonElement.addEventListener('click', () => {
+				document.getElementById('editarSolicitudId').value = buttonElement.dataset.id || '';
+				document.getElementById('editarSolicitudProducto').textContent = buttonElement.dataset.producto || 'Producto';
+				document.getElementById('editarSolicitudCantidad').value = buttonElement.dataset.cantidad || '';
+				document.getElementById('editarSolicitudObs').value = buttonElement.dataset.observaciones || '';
+				editarModal.show();
+			});
+		});
+	}
+
+	document.addEventListener('DOMContentLoaded', () => {
+		bindEvents();
+
+		if (nuevoProductoSelect) {
+			nuevoProductoSelect.addEventListener('change', (e) => {
+				const val = Number(e.target.value);
+				if (!val) {
+					nuevoStockPreview.style.display = 'none';
+					return;
+				}
+				const optionData = productosMeta.find(p => p.id_producto === val) || {};
+				const stock = optionData.stock || 0;
+				const isBajo = optionData.bajo === 1;
+
+				if (isBajo) {
+					nuevoStockPreview.className = 'prod-orders-alert warning';
+					nuevoStockPreview.innerHTML = `
+						<i class="bi bi-exclamation-triangle-fill"></i>
+						<div>El inventario actual (${stock}) está por debajo del mínimo recomendado.</div>`;
+					nuevoStockPreview.style.display = 'flex';
+				} else {
+					nuevoStockPreview.className = 'prod-orders-alert success';
+					nuevoStockPreview.innerHTML = `
+						<i class="bi bi-check-circle-fill"></i>
+						<div>Stock actual saludable: ${stock} piezas.</div>`;
+					nuevoStockPreview.style.display = 'flex';
+				}
+			});
+		}
+
+		{% if open_modal == 'modalNuevaSolicitud' or form_crear.errors %}
+			nuevoModal.show();
+		{% elif open_modal == 'modalEditarSolicitud' or form_editar.errors %}
+			editarModal.show();
+		{% endif %}
+	});
+				nuevoStockPreview.innerHTML = '';
+			}
+		});
+	}
+</script>
+{% endblock %}

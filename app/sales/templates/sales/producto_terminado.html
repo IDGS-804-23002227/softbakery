@@ -1,0 +1,926 @@
+{% extends "base_template.html" %} {% from '_macros.html' import campo %} {% block title
+%}Inventario y Producto Terminado{% endblock %} {% block page_title %}Producto terminado{% endblock
+%} {% block content %} {% set payload_map = {} %} {% for item in productos_payload %} {% set _ =
+payload_map.update({item.id_producto: item}) %} {% endfor %}
+
+<section class="product-shell">
+	<header class="product-hero">
+		<div>
+			<p class="ops-meta mb-2">Almacén · Producto terminado</p>
+			<h2 class="product-title">Inventario y Producto Terminado</h2>
+			<p class="product-lead mb-0">
+				Gestiona el catálogo, controla existencias y revisa alertas de stock bajo con un flujo
+				alineado a producción y ventas.
+			</p>
+		</div>
+		<div class="product-hero-aside text-end">
+			<div class="product-clock mb-2">
+				Último acceso: {{ utc_now().strftime('%d/%m/%Y — %I:%M %p') }}
+			</div>
+			{% if can_manage %}
+			<button
+				type="button"
+				class="btn btn-primary text-white border-0 product-hero-action"
+				id="btnNuevoProducto">
+				<i class="bi bi-plus-lg me-2 text-white"></i>
+				Nuevo producto
+			</button>
+			{% endif %}
+		</div>
+	</header>
+
+	{% if alertas_stock %}
+	<div class="product-alert" role="alert">
+		<div class="product-alert-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+		<div>
+			<p class="product-alert-title mb-1">{{ alertas_stock|length }} productos bajo stock mínimo</p>
+			<p class="product-alert-text mb-0">
+				{% for alerta in alertas_stock %} {{ alerta.nombre }} ({{ alerta.cantidad_disponible }} {{
+				alerta.unidad_venta }} / mín. {{ alerta.stock_minimo }} {{ alerta.unidad_venta }}){% if not
+				loop.last %} · {% endif %} {% endfor %}
+			</p>
+		</div>
+	</div>
+	{% endif %}
+
+	<div class="product-tabs">
+		<button type="button" class="product-tab active" data-view-target="catalogView">
+			<i class="bi bi-grid-fill me-2"></i>
+			Catálogo
+		</button>
+		<button type="button" class="product-tab" data-view-target="inventoryView">
+			<i class="bi bi-table me-2"></i>
+			Inventario
+		</button>
+	</div>
+
+	<div class="product-toolbar">
+		<div class="ops-input-wrap product-search">
+			<i class="bi bi-search"></i>
+			<input type="text" id="searchInput" placeholder="Buscar producto..." />
+		</div>
+		<select id="filterStatus" class="form-select product-filter">
+			<option value="all">Todos</option>
+			<option value="active">Activos</option>
+			<option value="inactive">Inactivos</option>
+		</select>
+		<select id="filterStock" class="form-select product-filter">
+			<option value="all">Todo el stock</option>
+			<option value="low">Stock bajo</option>
+			<option value="available">Disponible</option>
+		</select>
+	</div>
+
+	<div class="product-view" id="catalogView">
+		<div class="product-grid">
+			{% for p in productos %} {% set m = metricas_producto.get(p.id_producto, {}) %}
+			<article
+				class="product-card"
+				data-product-item
+				data-status="{{ 'active' if p.activo else 'inactive' }}"
+				data-stock="{{ 'low' if p.esta_bajo_stock else 'available' }}"
+				data-name="{{ p.nombre|lower }}">
+				<div class="product-card-media" style="height: 190px; position: relative">
+					{% if not p.activo %}
+					<span
+						class="product-status-badge neutral"
+						style="position: absolute; top: 10px; right: 10px; z-index: 2">
+						Inactivo
+					</span>
+					{% elif p.esta_bajo_stock %}
+					<span
+						class="product-status-badge warning"
+						style="position: absolute; top: 10px; right: 10px; z-index: 2">
+						Stock bajo
+					</span>
+					{% else %}
+					<span
+						class="product-status-badge success"
+						style="position: absolute; top: 10px; right: 10px; z-index: 2">
+						Disponible
+					</span>
+					{% endif %}
+
+					<div
+						class="product-emoji"
+						style="
+							font-size: 5.5rem;
+							height: 130px;
+							width: 130px;
+							display: flex;
+							align-items: center;
+							justify-content: center;
+							overflow: hidden;
+							border-radius: 8px;
+						">
+						{% if p.imagen and p.imagen.startswith('img/') %}
+						<img
+							src="{{ url_for('static', filename=p.imagen) }}"
+							alt="{{ p.nombre }}"
+							style="width: 100%; height: 100%; object-fit: contain" />
+						{% elif p.imagen and (p.imagen.startswith('http') or p.imagen.startswith('data:')) %}
+						<img
+							src="{{ p.imagen }}"
+							alt="{{ p.nombre }}"
+							style="width: 100%; height: 100%; object-fit: contain" />
+						{% else %}
+						<span>{{ p.imagen or '🍰' }}</span>
+						{% endif %}
+					</div>
+				</div>
+				<div class="product-card-body">
+					<div class="d-flex justify-content-between align-items-start gap-2">
+						<div>
+							<h3 class="product-name mb-1">{{ p.nombre }}</h3>
+							<p class="product-desc mb-0">{{ p.descripcion or 'Sin descripción' }}</p>
+						</div>
+						<div class="product-mini-pill">#{{ '%03d'|format(p.id_producto) }}</div>
+					</div>
+
+					<div class="product-price-row">
+						<div>
+							<div class="product-price">${{ '%.2f'|format(p.precio_venta) }}</div>
+							<div class="product-unit">/ {{ p.unidad_venta }}</div>
+						</div>
+						<div class="product-state {{ 'success' if p.activo else 'neutral' }}">
+							{{ 'Activo' if p.activo else 'Inactivo' }}
+						</div>
+					</div>
+
+					<div class="product-stock-line">
+						<span>Stock</span>
+						<strong>{{ p.cantidad_disponible }} / mín. {{ p.stock_minimo }}</strong>
+					</div>
+					<div class="product-stock-bar">
+						<div
+							class="product-stock-fill {{ 'warning' if p.esta_bajo_stock else 'success' }}"></div>
+					</div>
+
+					<div
+						class="product-actions"
+						style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+						<button
+							type="button"
+							class="btn btn-primary text-white border-0 btn-sm btnVerProducto"
+							data-id="{{ p.id_producto }}">
+							<i class="bi bi-eye-fill me-1 text-white"></i>
+							Ver
+						</button>
+						<button
+							type="button"
+							class="btn btn-primary text-white border-0 btn-sm btnMovimientosProducto"
+							data-id="{{ p.id_producto }}">
+							<i class="bi bi-arrow-left-right me-1 text-white"></i>
+							Movim.
+						</button>
+						{% if can_manage %}
+						<button
+							type="button"
+							class="btn btn-primary text-white border-0 btn-sm btnEditarProducto"
+							data-id="{{ p.id_producto }}">
+							<i class="bi bi-pencil-fill me-1 text-white"></i>
+							Editar
+						</button>
+						{% if p.activo %}
+						<button
+							type="button"
+							class="btn btn-danger text-white border-0 btn-sm btnDesactivarProducto"
+							data-id="{{ p.id_producto }}">
+							<i class="bi bi-archive-fill me-1 text-white"></i>
+							Desac.
+						</button>
+						{% endif %} {% endif %}
+					</div>
+				</div>
+			</article>
+			{% else %}
+			<div class="product-empty">
+				<i class="bi bi-bag-x display-5"></i>
+				<p class="mb-0">No hay productos registrados.</p>
+			</div>
+			{% endfor %}
+		</div>
+	</div>
+
+	<div class="product-view d-none" id="inventoryView">
+		<div class="product-table-wrap">
+			<table class="table align-middle mb-0">
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>Producto</th>
+						<th>Precio venta</th>
+						<th>Cant. actual</th>
+						<th>Stock mínimo</th>
+						<th>Estado stock</th>
+						<th>Última actualiz.</th>
+						<th>Estado</th>
+						<th class="text-end">Acciones</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for p in productos %}
+					<tr
+						class="product-row"
+						data-product-item
+						data-status="{{ 'active' if p.activo else 'inactive' }}"
+						data-stock="{{ 'low' if p.esta_bajo_stock else 'available' }}"
+						data-name="{{ p.nombre|lower }}">
+						<td class="text-muted">P-{{ '%03d'|format(p.id_producto) }}</td>
+						<td>
+							<div class="d-flex align-items-center gap-3">
+								<div class="table-emoji">
+									{% if p.imagen and p.imagen.startswith('img/') %}
+									<img src="{{ url_for('static', filename=p.imagen) }}" alt="{{ p.nombre }}" />
+									{% elif p.imagen and (p.imagen.startswith('http') or p.imagen.startswith('data:'))
+									%}
+									<img src="{{ p.imagen }}" alt="{{ p.nombre }}" />
+									{% else %}
+									<span>{{ p.imagen or '🍰' }}</span>
+									{% endif %}
+								</div>
+								<div>
+									<div class="fw-semibold">{{ p.nombre }}</div>
+									<div class="small text-muted">{{ p.unidad_venta }}</div>
+								</div>
+							</div>
+						</td>
+						<td>${{ '%.2f'|format(p.precio_venta) }}</td>
+						<td class="fw-bold">{{ p.cantidad_disponible }}</td>
+						<td>{{ p.stock_minimo }}</td>
+						<td>
+							{% if p.esta_bajo_stock %}
+							<span class="product-state warning">Stock bajo</span>
+							{% else %}
+							<span class="product-state success">Disponible</span>
+							{% endif %}
+						</td>
+						<td>
+							<small class="text-muted">
+								{{ p.fecha_actualizacion.strftime('%d/%m/%Y') if p.fecha_actualizacion else 'N/A' }}
+							</small>
+						</td>
+						<td>
+							<span class="product-state {{ 'success' if p.activo else 'neutral' }}">
+								{{ 'Activo' if p.activo else 'Inactivo' }}
+							</span>
+						</td>
+						<td class="text-end">
+							<div class="product-actions justify-content-end">
+								<button
+									type="button"
+									class="btn btn-primary text-white border-0 btn-sm btnVerProducto"
+									data-id="{{ p.id_producto }}">
+									<i class="bi bi-eye-fill text-white"></i>
+								</button>
+								<button
+									type="button"
+									class="btn btn-primary text-white border-0 btn-sm btnMovimientosProducto"
+									data-id="{{ p.id_producto }}">
+									<i class="bi bi-arrow-left-right text-white"></i>
+								</button>
+								{% if can_manage %}
+								<button
+									type="button"
+									class="btn btn-primary text-white border-0 btn-sm btnEditarProducto"
+									data-id="{{ p.id_producto }}">
+									<i class="bi bi-pencil-fill text-white"></i>
+								</button>
+								{% endif %}
+							</div>
+						</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</section>
+
+<div class="modal fade" id="modalProducto" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+		<div class="modal-content product-modal">
+			<div class="modal-header product-modal-header">
+				<div>
+					<p class="ops-meta mb-1" id="modalEyebrow">Nuevo producto</p>
+					<h5 class="modal-title mb-0" id="modalTitle">Nuevo producto terminado</h5>
+				</div>
+				<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+			</div>
+			<form method="post" id="formProducto" enctype="multipart/form-data" novalidate>
+				{{ form_producto.csrf_token }}
+				<div class="modal-body">
+					{{ form_producto.action(id="formAction") }} {{ form_producto.id_producto(id="productId")
+					}}
+					<div class="product-form-grid">
+						<div class="product-form-card">
+							<p class="ops-meta mb-3">
+								<i class="bi bi-info-circle-fill me-1"></i>
+								Datos del producto
+							</p>
+							<div class="form-grid form-grid-2">
+								<div class="field-span-2">
+									{{ campo(form_producto.nombre, id='nombre', placeholder='Ej. Pastel de Chocolate')
+									}}
+								</div>
+								<div>
+									{{ campo(form_producto.precio_venta, id='precio_venta', placeholder='0.00') }}
+								</div>
+								<div>{{ campo(form_producto.unidad_venta, id='unidad_venta') }}</div>
+								<div class="field-span-2">
+									{{ campo(form_producto.id_receta, id='id_receta') }}
+									<small class="text-muted" id="recetaHelpText">
+										Asigna la receta activa del producto para cálculo de costo y precio sugerido.
+									</small>
+								</div>
+								<div>{{ campo(form_producto.margen_objetivo_pct, id='margen_objetivo_pct') }}</div>
+								<div class="field-span-2">
+									{{ campo(form_producto.descripcion, id='descripcion', rows='3',
+									placeholder='Descripción del producto (opcional)...') }}
+								</div>
+								<div>
+									<label for="imagen_archivo" class="form-label fw-semibold">Imagen</label>
+									<input
+										type="file"
+										class="form-control"
+										name="imagen_archivo"
+										id="imagen_archivo"
+										accept="image/*" />
+								</div>
+								<div>
+									{{ campo(form_producto.imagen, id='imagen', placeholder='🍰 o URL imagen') }}
+								</div>
+								<div>{{ campo(form_producto.activo, id='activo') }}</div>
+								<div class="field-span-2">
+									<div class="d-flex flex-wrap gap-2 align-items-center">
+										<small class="text-muted">
+											Costo prod.:
+											<strong id="costoRecetaVista">$0.00</strong>
+										</small>
+										<small class="text-muted">
+											Precio sugerido:
+											<strong id="precioSugeridoVista">$0.00</strong>
+										</small>
+										<button
+											type="button"
+											class="btn btn-primary text-white border-0 btn-sm"
+											id="btnAplicarSugerido">
+											Aplicar sugerido
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="product-form-card">
+							<p class="ops-meta mb-3">
+								<i class="bi bi-boxes me-1"></i>
+								Inventario
+							</p>
+							<div class="form-grid form-grid-2">
+								<div>
+									{{ campo(form_producto.stock_inicial, id='stock_inicial') }}
+									<small class="text-muted">
+										Se actualiza automáticamente por producción y ventas.
+									</small>
+								</div>
+								<div>
+									{{ campo(form_producto.stock_minimo, id='stock_minimo') }}
+									<small class="text-muted">
+										Activa alerta visual cuando el inventario baje del mínimo.
+									</small>
+								</div>
+							</div>
+						</div>
+
+						<div class="product-form-card product-preview-card">
+							<p class="ops-meta mb-3">
+								<i class="bi bi-image me-1"></i>
+								Vista previa
+							</p>
+							<div class="product-preview" id="productPreview">
+								<span>🍰</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer product-modal-footer border-0">
+					<button type="button" class="btn btn-primary text-white border-0" data-bs-dismiss="modal">
+						Cancelar
+					</button>
+					<button type="submit" class="btn btn-success text-white border-0" id="btnGuardarProducto">
+						<i class="bi bi-check2-circle me-1 text-white"></i>
+						Guardar producto
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+</div>
+
+<div class="modal fade" id="modalDetalleProducto" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-lg modal-dialog-centered">
+		<div class="modal-content product-modal">
+			<div class="modal-header product-modal-header">
+				<div>
+					<p class="ops-meta mb-1">Detalle</p>
+					<h5 class="modal-title mb-0" id="detalleTitulo">Producto terminado</h5>
+				</div>
+				<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+			</div>
+			<div class="modal-body">
+				<div class="product-detail-grid">
+					<div class="product-detail-hero" id="detalleEmoji">🍰</div>
+					<div>
+						<p class="product-detail-name mb-1" id="detalleNombre">—</p>
+						<p class="product-desc mb-3" id="detalleDescripcion">—</p>
+						<div class="detail-pill-row" id="detallePills"></div>
+					</div>
+				</div>
+				<div class="product-detail-grid mt-3">
+					<div class="product-detail-box">
+						<span>Precio</span>
+						<strong id="detallePrecio">$0.00</strong>
+					</div>
+					<div class="product-detail-box">
+						<span>Costo receta</span>
+						<strong id="detalleCosto">$0.00</strong>
+					</div>
+					<div class="product-detail-box">
+						<span>Stock actual</span>
+						<strong id="detalleStock">0</strong>
+					</div>
+					<div class="product-detail-box">
+						<span>Stock mínimo</span>
+						<strong id="detalleMinimo">0</strong>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="modal fade" id="modalMovimientosProducto" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+		<div class="modal-content product-modal">
+			<div class="modal-header product-modal-header">
+				<div>
+					<p class="ops-meta mb-1">Historial</p>
+					<h5 class="modal-title mb-0" id="movimientosTitulo">Movimientos</h5>
+				</div>
+				<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+			</div>
+			<div class="modal-body">
+				<div class="ops-table table-responsive product-movements-table">
+					<table class="table table-hover align-middle mb-0">
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>Tipo</th>
+								<th>Cantidad</th>
+								<th>Antes</th>
+								<th>Después</th>
+								<th>Fecha</th>
+								<th>Referencia</th>
+							</tr>
+						</thead>
+						<tbody id="movimientosBody"></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<form method="post" id="formDesactivarProducto" class="d-none">
+	<input type="hidden" name="action" value="editar" />
+	<input type="hidden" name="id_producto" id="desactivarIdProducto" />
+	<input type="hidden" name="nombre" id="desactivarNombre" />
+	<input type="hidden" name="descripcion" id="desactivarDescripcion" />
+	<input type="hidden" name="precio_venta" id="desactivarPrecio" />
+	<input type="hidden" name="unidad_venta" id="desactivarUnidad" />
+	<input type="hidden" name="stock_minimo" id="desactivarStockMinimo" />
+	<input type="hidden" name="activo" value="off" />
+</form>
+
+<script id="products-data" type="application/json">
+	{{ productos_payload|tojson }}
+</script>
+<script id="recipes-by-product-data" type="application/json">
+	{{ recetas_por_producto|tojson }}
+</script>
+<script>
+	const productsArray = JSON.parse(document.getElementById('products-data').textContent || '[]');
+	const recipesByProduct = JSON.parse(
+		document.getElementById('recipes-by-product-data').textContent || '{}'
+	);
+	const productsData = productsArray.reduce((accumulator, product) => {
+		accumulator[product.id_producto] = product;
+		return accumulator;
+	}, {});
+
+	function createModalController(modalElement) {
+		if (globalThis.bootstrap && globalThis.bootstrap.Modal) {
+			return new globalThis.bootstrap.Modal(modalElement);
+		}
+
+		return {
+			show() {
+				modalElement.classList.add('show');
+				modalElement.style.display = 'block';
+				modalElement.removeAttribute('aria-hidden');
+				document.body.classList.add('modal-open');
+				if (!document.querySelector('.modal-backdrop')) {
+					const backdrop = document.createElement('div');
+					backdrop.className = 'modal-backdrop fade show';
+					backdrop.dataset.fallbackBackdrop = 'true';
+					document.body.appendChild(backdrop);
+				}
+			},
+			hide() {
+				modalElement.classList.remove('show');
+				modalElement.style.display = 'none';
+				modalElement.setAttribute('aria-hidden', 'true');
+				document.body.classList.remove('modal-open');
+				document
+					.querySelectorAll('[data-fallback-backdrop="true"]')
+					.forEach((node) => node.remove());
+			},
+		};
+	}
+
+	const modalProducto = createModalController(document.getElementById('modalProducto'));
+	const modalDetalle = createModalController(document.getElementById('modalDetalleProducto'));
+	const modalMovimientos = createModalController(
+		document.getElementById('modalMovimientosProducto')
+	);
+	const modalControllers = {
+		modalProducto,
+		modalDetalleProducto: modalDetalle,
+		modalMovimientosProducto: modalMovimientos,
+	};
+	if (!globalThis.bootstrap || !globalThis.bootstrap.Modal) {
+		document.querySelectorAll('[data-bs-dismiss="modal"]').forEach((button) => {
+			button.addEventListener('click', () => {
+				const modal = button.closest('.modal');
+				if (modal && modalControllers[modal.id]) {
+					modalControllers[modal.id].hide();
+				}
+			});
+		});
+	}
+	const formProducto = document.getElementById('formProducto');
+	const precioInput = document.getElementById('precio_venta');
+	const margenInput = document.getElementById('margen_objetivo_pct');
+	const previewBox = document.getElementById('productPreview');
+	const costoRecetaVista = document.getElementById('costoRecetaVista');
+	const precioSugeridoVista = document.getElementById('precioSugeridoVista');
+	const btnAplicarSugerido = document.getElementById('btnAplicarSugerido');
+	const stockInicialInput = document.getElementById('stock_inicial');
+	const recetaSelect = document.getElementById('id_receta');
+	const recetaHelpText = document.getElementById('recetaHelpText');
+	const productTitle = document.getElementById('modalTitle');
+	const modalEyebrow = document.getElementById('modalEyebrow');
+	let currentCost = 0;
+	let currentEditingProduct = null;
+
+	function money(value) {
+		return new Intl.NumberFormat('es-MX', {
+			style: 'currency',
+			currency: 'MXN',
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2,
+		}).format(Number(value || 0));
+	}
+
+	function parseNumber(value) {
+		const parsed = Number(value || 0);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+
+	function buildMediaMarkup(imagen, nombre) {
+		if (!imagen) {
+			return '<span>🍰</span>';
+		}
+		if (imagen.startsWith('img/')) {
+			return `<img src="/static/${imagen}" alt="${nombre}">`;
+		}
+		if (imagen.startsWith('http') || imagen.startsWith('data:')) {
+			return `<img src="${imagen}" alt="${nombre}">`;
+		}
+		return `<span>${imagen}</span>`;
+	}
+
+	function refreshPricingAid() {
+		const margen = parseNumber(margenInput?.value);
+		let sugerido = 0;
+		if (currentCost > 0 && margen > 0 && margen < 100) {
+			sugerido = currentCost / (1 - margen / 100);
+		}
+		if (costoRecetaVista) {
+			costoRecetaVista.textContent = money(currentCost);
+		}
+		if (precioSugeridoVista) {
+			precioSugeridoVista.textContent = money(sugerido);
+		}
+	}
+
+	function getRecipeListForProduct(productId) {
+		if (!productId) return [];
+		return recipesByProduct[String(productId)] || [];
+	}
+
+	function applyCurrentCostFromRecipe() {
+		const productCost = parseNumber(currentEditingProduct?.costo_produccion_actual || 0);
+		const selectedId = Number(recetaSelect?.value || 0);
+		if (!selectedId) {
+			currentCost = productCost;
+			refreshPricingAid();
+			return;
+		}
+
+		const recipes = getRecipeListForProduct(currentEditingProduct?.id_producto);
+		const selectedRecipe = recipes.find((recipe) => Number(recipe.id_receta) === selectedId);
+		currentCost = parseNumber(selectedRecipe?.costo_unitario || productCost);
+		refreshPricingAid();
+	}
+
+	function populateRecipeOptions(productId, selectedRecipeId = null) {
+		if (!recetaSelect) return;
+		recetaSelect.innerHTML = '<option value="0">Sin receta activa</option>';
+
+		if (!productId) {
+			recetaSelect.value = '0';
+			recetaSelect.disabled = true;
+			if (recetaHelpText) {
+				recetaHelpText.textContent =
+					'Primero crea el producto. Luego podrás asociar su receta activa.';
+			}
+			return;
+		}
+
+		const recipes = getRecipeListForProduct(productId);
+		recetaSelect.disabled = false;
+		if (!recipes.length) {
+			recetaSelect.value = '0';
+			if (recetaHelpText) {
+				recetaHelpText.textContent =
+					'Este producto aún no tiene receta activa. Créala en el módulo Recetas (RF08).';
+			}
+			return;
+		}
+
+		recipes.forEach((recipe) => {
+			const option = document.createElement('option');
+			option.value = String(recipe.id_receta);
+			option.textContent = `v${recipe.version} · ${money(recipe.costo_unitario)} / ${recipe.unidad_produccion}`;
+			recetaSelect.appendChild(option);
+		});
+
+		if (selectedRecipeId) {
+			recetaSelect.value = String(selectedRecipeId);
+		}
+		if (!recetaSelect.value && recipes.length) {
+			recetaSelect.value = String(recipes[0].id_receta);
+		}
+		if (recetaHelpText) {
+			recetaHelpText.textContent =
+				'Receta vigente para cálculo automático de costo de producción y precio sugerido.';
+		}
+	}
+
+	function resetProductForm() {
+		formProducto.reset();
+		formProducto.action = '';
+		document.getElementById('formAction').value = 'crear';
+		document.getElementById('productId').value = '';
+		modalEyebrow.textContent = 'Nuevo producto';
+		productTitle.textContent = 'Nuevo producto terminado';
+		stockInicialInput.readOnly = false;
+		stockInicialInput.value = '0';
+		currentEditingProduct = null;
+		currentCost = 0;
+		if (margenInput) {
+			margenInput.value = '25';
+		}
+		populateRecipeOptions(null, null);
+		document.getElementById('activo').value = 'on';
+		previewBox.innerHTML = '<span>🍰</span>';
+		precioInput.value = '';
+		refreshPricingAid();
+	}
+
+	function openProductModal(productId) {
+		const product = productsData[productId];
+		if (!product) return;
+		currentEditingProduct = product;
+
+		document.getElementById('formAction').value = 'editar';
+		document.getElementById('productId').value = product.id_producto;
+		document.getElementById('nombre').value = product.nombre || '';
+		document.getElementById('descripcion').value = product.descripcion || '';
+		precioInput.value = parseNumber(product.precio_venta).toFixed(2);
+		if (margenInput) {
+			margenInput.value = parseNumber(product.margen_objetivo_pct || 25).toFixed(2);
+		}
+		currentCost = parseNumber(product.costo_produccion_actual || 0);
+		document.getElementById('unidad_venta').value = product.unidad_venta || 'Pieza';
+		document.getElementById('stock_minimo').value = product.stock_minimo ?? 0;
+		stockInicialInput.value = product.cantidad_disponible ?? 0;
+		stockInicialInput.readOnly = true;
+		document.getElementById('activo').value = product.activo ? 'on' : 'off';
+		document.getElementById('imagen').value = product.imagen || '';
+		populateRecipeOptions(product.id_producto, product.id_receta || null);
+		modalEyebrow.textContent = 'Editar producto';
+		productTitle.textContent = product.nombre;
+		previewBox.innerHTML = buildMediaMarkup(product.imagen, product.nombre);
+		applyCurrentCostFromRecipe();
+		refreshPricingAid();
+		modalProducto.show();
+	}
+
+	function openDetailModal(productId) {
+		const product = productsData[productId];
+		if (!product) return;
+		document.getElementById('detalleTitulo').textContent = product.nombre;
+		document.getElementById('detalleNombre').textContent = product.nombre;
+		document.getElementById('detalleDescripcion').textContent =
+			product.descripcion || 'Sin descripción';
+		document.getElementById('detallePrecio').textContent = money(product.precio_venta);
+		document.getElementById('detalleCosto').textContent = money(product.costo_produccion_actual);
+		document.getElementById('detalleStock').textContent = product.cantidad_disponible;
+		document.getElementById('detalleMinimo').textContent = product.stock_minimo;
+		document.getElementById('detalleEmoji').innerHTML = buildMediaMarkup(
+			product.imagen,
+			product.nombre
+		);
+		document.getElementById('detallePills').innerHTML = `
+			<span class="ops-chip ${product.activo ? 'success' : 'neutral'}">${product.activo ? 'Activo' : 'Inactivo'}</span>
+			<span class="ops-chip ${product.esta_bajo_stock ? 'warning' : 'success'}">${product.estado_stock}</span>
+		`;
+		modalDetalle.show();
+	}
+
+	async function openMovimientosModal(productId) {
+		const product = productsData[productId];
+		if (!product) return;
+		document.getElementById('movimientosTitulo').textContent = `Movimientos · ${product.nombre}`;
+		const body = document.getElementById('movimientosBody');
+		body.innerHTML =
+			'<tr><td colspan="7" class="text-center py-4 text-muted">Cargando...</td></tr>';
+		modalMovimientos.show();
+
+		try {
+			const response = await fetch(`/sales/producto-terminado/${productId}/movimientos`, {
+				headers: { Accept: 'application/json' },
+			});
+			const data = await response.json();
+			const movimientos = data.movimientos || [];
+			if (!movimientos.length) {
+				body.innerHTML =
+					'<tr><td colspan="7" class="text-center py-4 text-muted">Sin movimientos registrados.</td></tr>';
+				return;
+			}
+			body.innerHTML = movimientos
+				.map((movimiento) => {
+					let tipoClase = 'neutral';
+					if (movimiento.tipo === 'ENTRADA') {
+						tipoClase = 'success';
+					} else if (movimiento.tipo === 'SALIDA') {
+						tipoClase = 'warning';
+					}
+
+					return `
+				<tr>
+					<td class="text-muted">#${movimiento.id_movimiento}</td>
+					<td><span class="ops-chip ${tipoClase}">${movimiento.tipo}</span></td>
+					<td>${movimiento.cantidad}</td>
+					<td>${movimiento.stock_anterior}</td>
+					<td>${movimiento.stock_posterior}</td>
+					<td>${movimiento.fecha_texto || '-'}</td>
+					<td class="small text-muted">${movimiento.referencia_id || '-'}</td>
+				</tr>
+			`;
+				})
+				.join('');
+		} catch (error) {
+			console.error('Error al cargar movimientos de producto', error);
+			body.innerHTML =
+				'<tr><td colspan="7" class="text-center py-4 text-danger">No se pudieron cargar los movimientos.</td></tr>';
+		}
+	}
+
+	function applyFilters() {
+		const term = document.getElementById('searchInput').value.toLowerCase();
+		const status = document.getElementById('filterStatus').value;
+		const stock = document.getElementById('filterStock').value;
+		document.querySelectorAll('[data-product-item]').forEach((item) => {
+			const matchesSearch = item.dataset.name.includes(term);
+			const matchesStatus = status === 'all' || item.dataset.status === status;
+			const matchesStock = stock === 'all' || item.dataset.stock === stock;
+			item.classList.toggle('d-none', !(matchesSearch && matchesStatus && matchesStock));
+		});
+	}
+
+	function activateView(targetId) {
+		document.querySelectorAll('.product-tab').forEach((tab) => {
+			tab.classList.toggle('active', tab.dataset.viewTarget === targetId);
+		});
+		document.querySelectorAll('.product-view').forEach((view) => {
+			view.classList.toggle('d-none', view.id !== targetId);
+		});
+	}
+
+	function wireButton(button, handler) {
+		button.addEventListener('click', () => handler(Number(button.dataset.id || 0)));
+	}
+
+	function bindEvents() {
+		document.querySelectorAll('.product-tab').forEach((tab) => {
+			tab.addEventListener('click', () => activateView(tab.dataset.viewTarget));
+		});
+
+		document
+			.querySelectorAll('.btnVerProducto')
+			.forEach((button) => wireButton(button, openDetailModal));
+		document
+			.querySelectorAll('.btnMovimientosProducto')
+			.forEach((button) => wireButton(button, openMovimientosModal));
+		document
+			.querySelectorAll('.btnEditarProducto')
+			.forEach((button) => wireButton(button, openProductModal));
+		document.querySelectorAll('.btnDesactivarProducto').forEach((button) => {
+			button.addEventListener('click', () => {
+				const product = productsData[Number(button.dataset.id || 0)];
+				if (!product) return;
+				if (!confirm(`¿Desactivar ${product.nombre}?`)) return;
+				document.getElementById('desactivarIdProducto').value = product.id_producto;
+				document.getElementById('desactivarNombre').value = product.nombre;
+				document.getElementById('desactivarDescripcion').value = product.descripcion || '';
+				document.getElementById('desactivarPrecio').value = product.precio_venta;
+				document.getElementById('desactivarUnidad').value = product.unidad_venta || 'Pieza';
+				document.getElementById('desactivarStockMinimo').value = product.stock_minimo || 0;
+				document.getElementById('formDesactivarProducto').submit();
+			});
+		});
+
+		if (document.getElementById('btnNuevoProducto')) {
+			document.getElementById('btnNuevoProducto').addEventListener('click', () => {
+				resetProductForm();
+				modalProducto.show();
+			});
+		}
+
+		if (margenInput) {
+			margenInput.addEventListener('input', refreshPricingAid);
+		}
+
+		if (btnAplicarSugerido) {
+			btnAplicarSugerido.addEventListener('click', () => {
+				const margen = parseNumber(margenInput?.value);
+				if (!(currentCost > 0 && margen > 0 && margen < 100)) {
+					return;
+				}
+				const sugerido = currentCost / (1 - margen / 100);
+				precioInput.value = sugerido.toFixed(2);
+			});
+		}
+
+		if (recetaSelect) {
+			recetaSelect.addEventListener('change', applyCurrentCostFromRecipe);
+		}
+
+		document.getElementById('imagen').addEventListener('input', () => {
+			const imagen = document.getElementById('imagen').value.trim();
+			if (!document.getElementById('imagen_archivo').files.length && imagen) {
+				previewBox.innerHTML = buildMediaMarkup(imagen, 'Vista previa');
+			}
+		});
+
+		const searchInput = document.getElementById('searchInput');
+		const filterStatus = document.getElementById('filterStatus');
+		const filterStock = document.getElementById('filterStock');
+		searchInput.addEventListener('input', applyFilters);
+		filterStatus.addEventListener('change', applyFilters);
+		filterStock.addEventListener('change', applyFilters);
+	}
+
+	document.addEventListener('DOMContentLoaded', () => {
+		bindEvents();
+		refreshPricingAid();
+		applyFilters();
+
+		{% if open_modal == 'modalProducto_crear' %}
+			modalProducto.show();
+			modalEyebrow.textContent = 'Nuevo producto';
+			productTitle.textContent = 'Nuevo producto terminado';
+			document.getElementById('formAction').value = 'crear';
+		{% elif open_modal == 'modalProducto_editar' %}
+			modalProducto.show();
+			modalEyebrow.textContent = 'Editar producto';
+			productTitle.textContent = 'Editar producto terminado';
+			document.getElementById('formAction').value = 'editar';
+		{% endif %}
+	});
+</script>
+{% endblock %}

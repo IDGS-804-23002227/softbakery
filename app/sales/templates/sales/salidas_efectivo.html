@@ -1,0 +1,52 @@
+{% extends "base_template.html" %} {% block title %}Salidas de Efectivo{% endblock %} {% block
+content %}
+<section class="section">
+	<div class="ops-hero">
+		<p class="ops-meta mb-1">Panel financiero</p>
+		<h2 class="ops-hero-title">Salidas de efectivo</h2>
+		<p class="ops-hero-text">Registra egresos para reflejar utilidad real del día.</p>
+	</div>
+	<div class="ops-card">
+		<h3 class="ops-card-title">Registrar salida</h3>
+		<form method="post" class="ops-grid">
+			<input type="text" name="concepto" placeholder="Concepto" required />
+			<input type="number" step="0.01" min="0.01" name="monto" placeholder="Monto" required />
+			<input type="text" name="tipo" placeholder="Tipo" value="OTRO" required />
+			<input type="text" name="referencia" placeholder="Referencia" />
+			<button type="submit">Registrar salida</button>
+		</form>
+	</div>
+
+	<div class="ops-card">
+		<h3 class="ops-card-title">Historial de salidas</h3>
+		<div class="ops-table table-responsive">
+			<table class="table table-hover align-middle mb-0">
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>Fecha</th>
+						<th>Concepto</th>
+						<th>Tipo</th>
+						<th>Monto</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for s in salidas %}
+					<tr>
+						<td>{{ s.id_salida }}</td>
+						<td>{{ s.fecha_creacion.strftime('%Y-%m-%d') }}</td>
+						<td>{{ s.concepto }}</td>
+						<td>{{ s.tipo }}</td>
+						<td>${{ '%.2f'|format(s.monto) }}</td>
+					</tr>
+					{% else %}
+					<tr>
+						<td colspan="5">No hay salidas registradas.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</section>
+{% endblock %}
