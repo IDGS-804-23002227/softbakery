@@ -57,7 +57,7 @@ class ProveedorForm(FlaskForm):
     submit = SubmitField("Guardar")
 
 
-# Usuarios 
+# Usuarios con validaciones
 
 class UsuarioCrearForm(FlaskForm):
     nombre = StringField(
