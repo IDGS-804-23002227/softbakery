@@ -1,0 +1,364 @@
+{% extends "base_template.html" %}
+{% from '_macros.html' import campo %}
+{% block title %}Usuarios{% endblock %}
+{% block content %}
+<section class="section">
+	<div class="ops-hero">
+		<div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+			<div>
+				<p class="ops-meta mb-1">Panel administrativo</p>
+				<h2 class="ops-hero-title">Gestión de usuarios</h2>
+				<p class="ops-hero-text">Alta, edición y control de estado de empleados.</p>
+			</div>
+			<div class="d-flex gap-2">
+				<form method="get" class="d-flex gap-2">
+					<input type="text" name="q" value="{{ q or '' }}" placeholder="Buscar por nombre o usuario" />
+					<button type="submit" class="btn btn-sm text-white"><i class="bi bi-search text-white"></i>
+						Buscar</button>
+				</form>
+				<button type="button" class="btn btn-sm text-white" data-bs-toggle="modal"
+					data-bs-target="#modalNuevoUsuario">
+					<i class="bi bi-person-plus-fill me-1 text-white"></i>
+					Nuevo usuario
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="ops-card">
+		<h3 class="ops-card-title">Usuarios registrados</h3>
+		<div class="ops-table table-responsive">
+			<table class="table table-hover align-middle mb-0">
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>Usuario</th>
+						<th>Nombre</th>
+						<th>Rol</th>
+						<th>Activo</th>
+						<th>Acciones</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for u in usuarios %}
+					<tr>
+						<td>{{ u.id_usuario }}</td>
+						<td>{{ u.username }}</td>
+						<td>{{ u.persona.nombre }} {{ u.persona.apellidos }}</td>
+						<td>
+							<span class="ops-chip neutral">{{ u.rol.nombre if u.rol else '-' }}</span>
+						</td>
+						<td>
+							<span class="ops-chip {{ 'success' if u.activo else 'neutral' }}">
+								{{ 'Activo' if u.activo else 'Inactivo' }}
+							</span>
+						</td>
+						<td>
+							<div class="btn-action-group">
+								<button type="button"
+									class="btn btn-sm btn-primary text-white border-0 btn-icon-sm js-editar-usuario"
+									data-id="{{ u.id_usuario }}" data-nombre="{{ u.persona.nombre }}"
+									data-apellidos="{{ u.persona.apellidos }}" data-telefono="{{ u.persona.telefono }}"
+									data-ciudad="{{ u.persona.ciudad }}" data-direccion="{{ u.persona.direccion }}"
+									data-id-rol="{{ u.id_rol }}" data-activo="{{ '1' if u.activo else '0' }}">
+									<i class="bi bi-pencil-fill text-white"></i>
+								</button>
+								<button type="button"
+									class="btn btn-sm btn-dark text-white border-0 btn-icon-sm js-desactivar-usuario"
+									data-id="{{ u.id_usuario }}" data-nombre="{{ u.username }}" {{ 'disabled' if not
+									u.activo else '' }}>
+									<i class="bi bi-slash-circle-fill text-white"></i>
+								</button>
+								<form method="post" id="formDesactivarUsuario{{ u.id_usuario }}"
+									action="{{ url_for('admin.desactivar_usuario', id_usuario=u.id_usuario) }}"></form>
+							</div>
+						</td>
+					</tr>
+					{% else %}
+					<tr>
+						<td colspan="6">No hay usuarios para mostrar.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	{# ─── Modal: Nuevo Usuario ─── #}
+	<div class="modal fade" id="modalNuevoUsuario" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered">
+			<div class="modal-content border-0 shadow">
+				<div class="modal-header" style="background: var(--sb-primary); color: #fff">
+					<h5 class="modal-title w-100 text-white">
+						<i class="bi bi-person-plus-fill me-2 text-white"></i>Alta de empleado
+					</h5>
+					<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+						aria-label="Close"></button>
+				</div>
+				<form method="post" id="registerFormUser" novalidate>
+					{{ form_crear.hidden_tag() }}
+					<div class="modal-body">
+						<div class="row g-3">
+							<div class="col-md-6">{{ campo(form_crear.nombre, placeholder='Nombre', class='form-control') }}</div>
+							<div class="col-md-6">{{ campo(form_crear.apellidos, placeholder='Apellidos', class='form-control') }}</div>
+							<div class="col-md-6">{{ campo(form_crear.telefono, placeholder='477-123-4567', class='form-control tel-format') }}</div>
+							<div class="col-md-6">{{ campo(form_crear.correo, placeholder='correo@empresa.com', class='form-control') }}</div>
+							<div class="col-md-6">{{ campo(form_crear.ciudad, placeholder='Ciudad', class='form-control') }}</div>
+							<div class="col-md-6">{{ campo(form_crear.direccion, placeholder='Dirección', class='form-control') }}</div>
+							<div class="col-md-6">{{ campo(form_crear.username, placeholder='Nombre de usuario', class='form-control') }}</div>
+							<div class="col-md-6">{{ campo(form_crear.id_rol, class='form-control') }}</div>
+							<div class="col-12">
+								<div class="mb-2">
+									{{ form_crear.password.label(class='form-label') }}
+									<div class="input-group">
+										<span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+										{{ form_crear.password(id='userPassword', class='form-control', placeholder='Mínimo 8 caracteres', autocomplete='new-password') }}
+										<span class="input-group-text toggle-password" data-target="userPassword" role="button" tabindex="0">
+											<i class="bi bi-eye-slash"></i>
+										</span>
+									</div>
+									{% if form_crear.password.errors %}
+										{% for err in form_crear.password.errors %}
+											<span class="text-danger" style="font-size:.78rem;">{{ err }}</span>
+										{% endfor %}
+									{% endif %}
+								</div>
+								<div class="pwd-rules-title mt-2">Tu contraseña debe incluir:</div>
+								<div class="pwd-rules" id="passwordRulesUser">
+									<div class="pwd-rule" data-rule="len"><i class="bi bi-x-circle err-ic"></i><i class="bi bi-check-circle ok-ic"></i>Mínimo 8 caracteres</div>
+									<div class="pwd-rule" data-rule="upper"><i class="bi bi-x-circle err-ic"></i><i class="bi bi-check-circle ok-ic"></i>Al menos una mayúscula</div>
+									<div class="pwd-rule" data-rule="lower"><i class="bi bi-x-circle err-ic"></i><i class="bi bi-check-circle ok-ic"></i>Al menos una minúscula</div>
+									<div class="pwd-rule" data-rule="number"><i class="bi bi-x-circle err-ic"></i><i class="bi bi-check-circle ok-ic"></i>Al menos un número</div>
+									<div class="pwd-rule" data-rule="special"><i class="bi bi-x-circle err-ic"></i><i class="bi bi-check-circle ok-ic"></i>Al menos un carácter especial</div>
+								</div>
+							</div>
+							<div class="col-12">{{ campo(form_crear.password_confirm, placeholder='Repite la contraseña', class='form-control') }}</div>
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-primary text-white" data-bs-dismiss="modal">Cancelar</button>
+						<button type="submit" class="btn btn-sm text-white"><i class="bi bi-plus-lg me-1 text-white"></i> Crear usuario</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	{# ─── Modal: Editar Usuario (genérico, se llena via JS) ─── #}
+	<div class="modal fade" id="modalUsuarioEditar" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-centered">
+			<div class="modal-content border-0 shadow">
+				<div class="modal-header" style="background: var(--sb-primary); color: #fff">
+					<h5 class="modal-title text-white">
+						<i class="bi bi-pencil-fill me-2 text-white"></i>
+						Editar usuario
+					</h5>
+					<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+						aria-label="Close"></button>
+				</div>
+				<form method="post" id="formEditarUsuario" novalidate>
+					{% if form_editar is defined and form_editar %}
+						{{ form_editar.hidden_tag() }}
+					{% else %}
+						<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+					{% endif %}
+					<div class="modal-body">
+						<div class="row g-3">
+							{% if form_editar is defined and form_editar %}
+								<div class="col-md-6">{{ campo(form_editar.nombre, class='form-control') }}</div>
+								<div class="col-md-6">{{ campo(form_editar.apellidos, class='form-control') }}</div>
+								<div class="col-md-6">{{ campo(form_editar.telefono, class='form-control tel-format') }}</div>
+								<div class="col-md-6">{{ campo(form_editar.ciudad, class='form-control') }}</div>
+								<div class="col-12">{{ campo(form_editar.direccion, class='form-control') }}</div>
+								<div class="col-md-6">{{ campo(form_editar.id_rol, class='form-control') }}</div>
+							{% else %}
+								<div class="col-md-6">
+									<label class="form-label">Nombre *</label>
+									<input type="text" class="form-control" name="editar-nombre" id="editarUsuarioNombre" required />
+								</div>
+								<div class="col-md-6">
+									<label class="form-label">Apellidos *</label>
+									<input type="text" class="form-control" name="editar-apellidos" id="editarUsuarioApellidos" required />
+								</div>
+								<div class="col-md-6">
+									<label class="form-label">Teléfono *</label>
+									<input type="text" class="form-control tel-format" name="editar-telefono" id="editarUsuarioTelefono" required />
+								</div>
+								<div class="col-md-6">
+									<label class="form-label">Ciudad</label>
+									<input type="text" class="form-control" name="editar-ciudad" id="editarUsuarioCiudad" />
+								</div>
+								<div class="col-12">
+									<label class="form-label">Dirección</label>
+									<input type="text" class="form-control" name="editar-direccion" id="editarUsuarioDireccion" />
+								</div>
+								<div class="col-md-6">
+									<label class="form-label">Rol *</label>
+									<select class="form-control" name="editar-id_rol" id="editarUsuarioRol" required>
+										{% for rol in roles %}
+										<option value="{{ rol.id_rol }}">{{ rol.nombre }}</option>
+										{% endfor %}
+									</select>
+								</div>
+							{% endif %}
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-primary text-white" data-bs-dismiss="modal">Cancelar</button>
+						<button type="submit" class="btn btn-sm text-white"><i class="bi bi-save me-1 text-white"></i>
+							Guardar cambios</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="modalUsuarioDesactivar" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-sm modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-body text-center py-4">
+					<div
+						style="width: 60px; height: 60px; border-radius: 50%; background: #fff8e1; color: #e65100; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; margin: 0 auto 1rem;">
+						<i class="bi bi-person-slash"></i>
+					</div>
+					<h5 style="font-family: 'Playfair Display', serif; font-size: 1.05rem">
+						¿Desactivar usuario?
+					</h5>
+					<p style="font-size: 0.9rem; color: var(--sb-muted)" id="textoDesactivarUsuario"></p>
+				</div>
+				<div class="modal-footer justify-content-center border-0 pt-0 pb-3">
+					<button type="button" class="bbtn btn-outline-primary" data-bs-dismiss="modal">Cancelar</button>
+					<button type="button" class="btn btn-sm btn-danger text-white" id="btnConfirmarDesactivarUsuario">
+						<i class="bi bi-check-lg me-1 text-white"></i> Confirmar
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+	// ─── Abrir modal según respuesta del servidor ───
+	{% if open_modal %}
+	document.addEventListener('DOMContentLoaded', function () {
+		{% if open_modal == 'modalNuevoUsuario' %}
+		new bootstrap.Modal(document.getElementById('modalNuevoUsuario')).show();
+		{% elif open_modal and open_modal.startswith('modalEditarUsuario-') %}
+		new bootstrap.Modal(document.getElementById('modalUsuarioEditar')).show();
+		{% endif %}
+	});
+	{% endif %}
+
+	// ─── Llenado dinámico del modal Editar (cuando no viene del servidor con errores) ───
+	{% if not (open_modal and open_modal.startswith('modalEditarUsuario-')) %}
+	document.querySelectorAll('.js-editar-usuario').forEach((buttonElement) => {
+		buttonElement.addEventListener('click', () => {
+			const id = buttonElement.dataset.id;
+			document.getElementById('formEditarUsuario').action = `/admin/usuarios/${id}/editar`;
+
+			// Llenar campos genéricos (cuando el form_editar no viene del servidor)
+			const nombre = document.getElementById('editarUsuarioNombre');
+			const apellidos = document.getElementById('editarUsuarioApellidos');
+			const telefono = document.getElementById('editarUsuarioTelefono');
+			const ciudad = document.getElementById('editarUsuarioCiudad');
+			const direccion = document.getElementById('editarUsuarioDireccion');
+			const rol = document.getElementById('editarUsuarioRol');
+
+			if (nombre) nombre.value = buttonElement.dataset.nombre || '';
+			if (apellidos) apellidos.value = buttonElement.dataset.apellidos || '';
+			if (telefono) telefono.value = buttonElement.dataset.telefono || '';
+			if (ciudad) ciudad.value = buttonElement.dataset.ciudad || '';
+			if (direccion) direccion.value = buttonElement.dataset.direccion || '';
+			if (rol) rol.value = buttonElement.dataset.idRol || '';
+
+			new bootstrap.Modal(document.getElementById('modalUsuarioEditar')).show();
+		});
+	});
+	{% else %}
+	// Cuando el servidor devuelve el form con errores, sólo necesitamos el action correcto
+	document.getElementById('formEditarUsuario').action = `/admin/usuarios/{{ edit_usuario_id }}/editar`;
+	{% endif %}
+
+	// ─── Modal Desactivar Usuario ───
+	let usuarioDesactivarId = null;
+
+	document.querySelectorAll('.js-desactivar-usuario').forEach((buttonElement) => {
+		buttonElement.addEventListener('click', () => {
+			usuarioDesactivarId = buttonElement.dataset.id;
+			document.getElementById('textoDesactivarUsuario').innerHTML =
+				`El usuario <strong>${buttonElement.dataset.nombre}</strong> pasará a estado <em>inactivo</em>. No se eliminará el registro.`;
+			new bootstrap.Modal(document.getElementById('modalUsuarioDesactivar')).show();
+		});
+	});
+
+	document.getElementById('btnConfirmarDesactivarUsuario').addEventListener('click', () => {
+		if (!usuarioDesactivarId) return;
+		document.getElementById(`formDesactivarUsuario${usuarioDesactivarId}`).submit();
+	});
+
+	// ─── Teléfono: formato automático ───
+	document.querySelectorAll('.tel-format').forEach(input => {
+		input.addEventListener('input', function () {
+			let val = this.value.replace(/\D/g, '');
+			if (val.length > 3 && val.length <= 6) {
+				val = val.slice(0, 3) + '-' + val.slice(3);
+			} else if (val.length > 6) {
+				val = val.slice(0, 3) + '-' + val.slice(3, 6) + '-' + val.slice(6, 10);
+			}
+			this.value = val;
+		});
+	});
+
+	// ─── Validador de contraseña ───
+	(function setupRegisterUserUX() {
+		const passwordInput = document.getElementById('userPassword');
+		const toggleTrigger = document.querySelector('.toggle-password[data-target="userPassword"]');
+
+		const rules = {
+			len: (v) => v.length >= 8,
+			upper: (v) => /[A-Z]/.test(v),
+			lower: (v) => /[a-z]/.test(v),
+			number: (v) => /\d/.test(v),
+			special: (v) => /[^A-Za-z\d]/.test(v),
+		};
+
+		const setRuleState = (ruleName, ok) => {
+			const ruleEl = document.querySelector(`#passwordRulesUser .pwd-rule[data-rule="${ruleName}"]`);
+			if (!ruleEl) return;
+			ruleEl.classList.toggle('ok', ok);
+		};
+
+		const passwordValid = () => {
+			const value = passwordInput ? passwordInput.value : '';
+			Object.entries(rules).forEach(([ruleName, validator]) => {
+				setRuleState(ruleName, validator(value));
+			});
+			return Object.values(rules).every((validator) => validator(value));
+		};
+
+		if (passwordInput) {
+			passwordInput.addEventListener('input', passwordValid);
+			passwordInput.addEventListener('blur', passwordValid);
+		}
+
+		if (toggleTrigger && passwordInput) {
+			const toggle = () => {
+				const isPass = passwordInput.type === 'password';
+				passwordInput.type = isPass ? 'text' : 'password';
+				toggleTrigger.innerHTML = isPass ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
+			};
+			toggleTrigger.addEventListener('click', toggle);
+			toggleTrigger.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+			});
+		}
+
+		const formElement = document.getElementById('registerFormUser');
+		// Removing the JS alert so that default WTForms submission handles it
+		// and displays macros correctly underneath the inputs.
+		passwordValid();
+	})();
+</script>
+{% endblock %}
