@@ -472,7 +472,7 @@ def roles():
                 flash("Rol creado correctamente.", "success")
                 return redirect(url_for(ROLES_ENDPOINT))
 
-        # Validation failed — reopen modal
+        # Falló la validación; vuelva a abrir la ventana modal.
         data = Rol.query.order_by(Rol.id_rol.asc()).all()
         modulos_data = Modulo.query.filter_by(activo=True).order_by(Modulo.nombre.asc()).all()
         modulos = [{"id_modulo": m.id_modulo, "nombre": m.nombre, "descripcion": None} for m in modulos_data]
