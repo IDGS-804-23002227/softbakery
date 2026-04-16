@@ -1,0 +1,340 @@
+{% extends "base_template.html" %} {% block title %}Mi Carrito{% endblock %} {% block content %}
+<section class="section">
+	<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+		<div>
+			<h2 class="portal-section-title mb-1">
+				<i class="bi bi-cart3 me-2"></i>
+				Mi carrito de compras
+			</h2>
+			<p class="portal-section-subtitle mb-0">
+				Revisa tus productos antes de confirmar tu pedido programado.
+			</p>
+		</div>
+		<a href="{{ url_for('catalog.catalogo') }}" class="btn btn-outline-dark rounded-pill px-3">
+			<i class="bi bi-arrow-left me-1"></i>
+			Seguir comprando
+		</a>
+	</div>
+
+	{% if detalles %}
+	<div class="row g-3">
+		<div class="col-lg-8">
+			<div class="vstack gap-3">
+				{% for d in detalles %} {% set subtotal = (d.producto.precio_venta * d.cantidad) %}
+				<div class="card border-0 shadow-sm">
+					<div class="card-body">
+						<div class="row g-3 align-items-center">
+							<div class="col-auto">
+								<div
+									class="rounded-3 border bg-light overflow-hidden d-flex align-items-center justify-content-center"
+									style="width: 72px; height: 72px">
+									{% if d.producto.imagen and (d.producto.imagen.startswith('http') or
+									d.producto.imagen.startswith('data:') or d.producto.imagen.startswith('img/')) %}
+									<img
+										src="{{ url_for('static', filename=d.producto.imagen) if d.producto.imagen.startswith('img/') else d.producto.imagen }}"
+										alt="{{ d.producto.nombre }}"
+										style="width: 100%; height: 100%; object-fit: cover" />
+									{% else %}
+									<span style="font-size: 1.55rem">{{ d.producto.imagen or '🍞' }}</span>
+									{% endif %}
+								</div>
+							</div>
+
+							<div class="col">
+								<h3 class="h6 mb-1">{{ d.producto.nombre }}</h3>
+								{% if d.producto.descripcion %}
+								<p class="text-secondary small mb-1">
+									{{ d.producto.descripcion[:95] }}{% if d.producto.descripcion|length > 95 %}…{%
+									endif %}
+								</p>
+								{% endif %}
+								<p class="small text-muted mb-0">
+									${{ "%.2f"|format(d.producto.precio_venta) }} c/u
+								</p>
+							</div>
+
+							<div class="col-12 col-md-auto">
+								<form method="post" class="d-flex align-items-center gap-2">
+									<input type="hidden" name="action" value="actualizar" />
+									<input type="hidden" name="id_detalle" value="{{ d.id_detalle }}" />
+									<label class="small text-muted mb-0" for="cantidad{{ d.id_detalle }}">
+										Cant.
+									</label>
+									<input
+										id="cantidad{{ d.id_detalle }}"
+										type="number"
+										name="cantidad"
+										value="{{ d.cantidad }}"
+										min="1"
+										max="5"
+										step="1"
+										class="form-control form-control-sm text-center"
+										style="width: 74px"
+										onchange="this.form.submit()" />
+								</form>
+							</div>
+
+							<div class="col-8 col-md-auto text-md-end">
+								<p class="fw-bold text-primary mb-0">${{ "%.2f"|format(subtotal) }}</p>
+							</div>
+
+							<div class="col-4 col-md-auto text-end">
+								<form method="post">
+									<input type="hidden" name="action" value="eliminar" />
+									<input type="hidden" name="id_detalle" value="{{ d.id_detalle }}" />
+									<button type="submit" class="btn btn-outline-danger btn-sm" title="Quitar">
+										<i class="bi bi-trash3"></i>
+									</button>
+								</form>
+							</div>
+						</div>
+					</div>
+				</div>
+				{% endfor %}
+			</div>
+		</div>
+
+		<div class="col-lg-4">
+			<div class="card border-0 shadow-sm position-sticky" style="top: 90px">
+				<div class="card-body">
+					<h5 class="fw-bold mb-3">
+						<i class="bi bi-receipt me-2"></i>
+						Resumen
+					</h5>
+					<div class="d-flex justify-content-between small mb-2">
+						<span>Subtotal</span>
+						<span>${{ "%.2f"|format(total) }}</span>
+					</div>
+					<div class="d-flex justify-content-between small mb-2">
+						<span>Productos</span>
+						<span>{{ detalles|length }}</span>
+					</div>
+					<div class="d-flex justify-content-between fw-bold text-primary border-top pt-2 mt-2">
+						<span>Total</span>
+						<span id="lblTotal">${{ "%.2f"|format(total) }}</span>
+					</div>
+
+					<button
+						type="button"
+						class="btn btn-primary w-100 mt-3"
+						data-bs-toggle="modal"
+						data-bs-target="#modalConfirmar">
+						<i class="bi bi-check2-circle me-1"></i>
+						Confirmar Pedido
+					</button>
+					<p class="small text-muted text-center mt-2 mb-0">
+						<i class="bi bi-shield-check"></i>
+						Compra segura
+					</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div
+		class="modal fade portal-checkout-modal"
+		id="modalConfirmar"
+		tabindex="-1"
+		aria-hidden="true">
+		<div
+			class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
+			<div class="modal-content border-0 shadow-lg" style="border-radius: 18px">
+				<div class="modal-header text-white" style="background: var(--sb-primary)">
+					<h5 class="modal-title">
+						<i class="bi bi-bag-check-fill me-2"></i>
+						Confirmar Pedido
+					</h5>
+					<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+				</div>
+
+				<form method="post" action="{{ url_for('catalog.checkout') }}" class="portal-checkout-form">
+					<input type="hidden" name="tipo_entrega" value="pickup" />
+					<input type="hidden" name="tipo_pago_pedido" value="EN_LINEA" />
+					<input type="hidden" name="tipo_pago" value="TARJETA" />
+
+					<div class="modal-body portal-checkout-modal-body">
+						<div class="row g-3">
+							<div class="col-12">
+								<label class="form-label fw-semibold">Fecha de entrega / recolección *</label>
+								<input
+									type="date"
+									name="fecha_entrega"
+									class="form-control"
+									required
+									min="{{ min_delivery_date.isoformat() }}" />
+								<div class="form-text">
+									Selecciona una fecha con al menos
+									<strong>3 días</strong>
+									a partir de hoy.
+								</div>
+							</div>
+
+							<div class="col-12">
+								<div class="alert alert-warning py-2 mb-0 small">
+									<i class="bi bi-shop me-1"></i>
+									Los pedidos web son solo para recolección en sucursal.
+								</div>
+							</div>
+
+							<div class="col-12">
+								<div class="alert alert-info py-2 mb-2 small">
+									<i class="bi bi-info-circle me-1"></i>
+									Para pedidos web el pago en línea con tarjeta es obligatorio.
+								</div>
+								<div class="border rounded-3 p-2 bg-light-subtle">
+									<div class="d-flex align-items-center gap-2">
+										<i class="bi bi-credit-card text-primary"></i>
+										<div>
+											<strong>Tarjeta</strong>
+											<div class="small text-secondary">Pago inmediato y validado</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="col-12">
+								<div class="border rounded-3 p-3 bg-light">
+									<p class="small text-primary mb-2">
+										<i class="bi bi-shield-lock me-1"></i>
+										Pago en línea requerido para registrar el pedido.
+									</p>
+									<div class="row g-2">
+										<div class="col-12">
+											<label class="form-label fw-semibold small">Número de tarjeta *</label>
+											<input
+												type="text"
+												name="numero_tarjeta"
+												id="inputTarjeta"
+												class="form-control"
+												maxlength="19"
+												placeholder="0000 0000 0000 0000"
+												autocomplete="off"
+												oninput="formatearTarjeta(this)"
+												required />
+										</div>
+										<div class="col-7">
+											<label class="form-label fw-semibold small">Fecha expiración *</label>
+											<input
+												type="text"
+												name="expiracion"
+												class="form-control"
+												maxlength="5"
+												placeholder="MM/AA"
+												autocomplete="off"
+												oninput="formatearExpiracion(this)"
+												required />
+										</div>
+										<div class="col-5">
+											<label class="form-label fw-semibold small">CVV *</label>
+											<input
+												type="text"
+												name="cvv"
+												class="form-control"
+												maxlength="4"
+												placeholder="123"
+												autocomplete="off"
+												oninput="this.value = this.value.replace(/\D/g, '')"
+												required />
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="col-12">
+								<div class="alert alert-secondary py-2 small mb-0">
+									<div><strong>Políticas:</strong></div>
+									<ul class="mb-0 ps-3">
+										<li>El pedido debe recogerse en la fecha seleccionada.</li>
+										<li>No hay devoluciones ni reembolsos.</li>
+										<li>Pedidos no recogidos son responsabilidad del cliente.</li>
+									</ul>
+								</div>
+							</div>
+
+							<div class="col-12">
+								<div class="form-check">
+									<input
+										class="form-check-input"
+										type="checkbox"
+										value="1"
+										id="aceptaPrivacidad"
+										name="acepta_privacidad"
+										required />
+									<label class="form-check-label small" for="aceptaPrivacidad">
+										Acepto las políticas de privacidad y tratamiento de datos.
+									</label>
+								</div>
+							</div>
+
+							<div class="col-12">
+								<label class="form-label fw-semibold small">Notas</label>
+								<textarea
+									name="notas_pedido"
+									class="form-control"
+									rows="2"
+									placeholder="Instrucciones especiales..."
+									maxlength="255"></textarea>
+							</div>
+
+							<div class="col-12">
+								<div class="border rounded-3 p-3 bg-light-subtle">
+									<div class="d-flex justify-content-between mb-2 small">
+										<span>Subtotal productos</span>
+										<span>${{ "%.2f"|format(total) }}</span>
+									</div>
+									<div class="d-flex justify-content-between fw-bold text-primary border-top pt-2">
+										<span>Total</span>
+										<span id="lblTotalModal">${{ "%.2f"|format(total) }}</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="modal-footer portal-checkout-modal-footer">
+						<button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+						<button type="submit" class="btn btn-primary px-4">
+							<i class="bi bi-check2-circle me-1"></i>
+							Confirmar Pedido
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+	{% else %}
+	<div class="portal-empty py-5">
+		<i class="bi bi-cart-x" style="font-size: 2.5rem"></i>
+		<p class="mb-2 mt-2">Tu carrito está vacío.</p>
+		<a href="{{ url_for('catalog.catalogo') }}" class="btn btn-primary btn-sm px-3 mt-2">
+			<i class="bi bi-grid-3x3-gap me-1"></i>
+			Ver catálogo
+		</a>
+	</div>
+	{% endif %}
+</section>
+{% endblock %} {% block scripts %} {{ super() }}
+<script>
+	const SUBTOTAL = parseFloat("{{ '%.2f'|format(total) if total else '0' }}");
+
+	function formatearTarjeta(input) {
+		let value = input.value.replace(/\D/g, '').substring(0, 16);
+		input.value = value.replace(/(.{4})/g, '$1 ').trim();
+	}
+
+	function formatearExpiracion(input) {
+		let value = input.value.replace(/\D/g, '').substring(0, 4);
+		if (value.length >= 3) {
+			value = value.substring(0, 2) + '/' + value.substring(2);
+		}
+		input.value = value;
+	}
+
+	document.addEventListener('DOMContentLoaded', () => {
+		const totalModal = document.getElementById('lblTotalModal');
+		if (totalModal) {
+			totalModal.textContent = '$' + SUBTOTAL.toFixed(2);
+		}
+	});
+</script>
+{% endblock %}

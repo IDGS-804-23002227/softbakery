@@ -1,0 +1,121 @@
+{% extends "base_template.html" %} {% block title %}Inicio{% endblock %} {% block content %}
+<section class="portal-hero" id="inicio">
+	<div class="portal-hero-body">
+		<div class="portal-hero-copy">
+			<span class="portal-hero-kicker">
+				<i class="bi bi-stars"></i>
+				Pastelería artesanal
+			</span>
+			<h1 class="portal-hero-title">Postres que hacen especial cualquier día.</h1>
+			<p class="portal-hero-text">
+				Explora nuestro catálogo, elige tus favoritos y agenda tu pedido. Preparamos cada postre con dedicación para que disfrutes sabor y frescura desde el primer bocado.
+			</p>
+			<div class="portal-hero-actions">
+    <a class="btn btn-login rounded-pill px-7" style="width: 250px;" href="{{ url_for('catalog.catalogo') }}">
+        Ver catálogo
+        <i class="bi bi-arrow-right ms-1"></i>
+    </a>
+</div>
+		</div>
+		<div class="portal-hero-visual">
+			<img
+				src="{{ url_for('static', filename='img/productos/Pastel_de_chocolate.jpg') }}"
+				alt="Pastel de chocolate artesanal" />
+			<div class="portal-hero-visual-badge">
+				<i class="bi bi-award-fill"></i>
+				Hecho para lucir bien y saber mejor
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="portal-values-grid" aria-label="Diferenciales de SoftBakery">
+	<article class="portal-value-card">
+		<span class="portal-value-icon"><i class="bi bi-clock-history"></i></span>
+		<div>
+			<p class="portal-value-title">Pedido fácil</p>
+			<p class="portal-value-text">Programa tu entrega en minutos.</p>
+		</div>
+	</article>
+	<article class="portal-value-card">
+		<span class="portal-value-icon"><i class="bi bi-bag-check"></i></span>
+		<div>
+			<p class="portal-value-title">Inventario real</p>
+			<p class="portal-value-text">Solo mostramos productos disponibles.</p>
+		</div>
+	</article>
+	<article class="portal-value-card">
+		<span class="portal-value-icon"><i class="bi bi-shield-check"></i></span>
+		<div>
+			<p class="portal-value-title">Pago seguro</p>
+			<p class="portal-value-text">Proceso protegido y validado.</p>
+		</div>
+	</article>
+	<article class="portal-value-card">
+		<span class="portal-value-icon"><i class="bi bi-award"></i></span>
+		<div>
+			<p class="portal-value-title">Calidad constante</p>
+			<p class="portal-value-text">Recetas controladas y producción diaria.</p>
+		</div>
+	</article>
+</section>
+
+<section class="section" id="productos">
+	<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+		<div>
+			<h2 class="portal-section-title">Favoritos de la semana</h2>
+			<p class="portal-section-subtitle mb-0">Selección destacada por nuestros clientes</p>
+		</div>
+		<a
+			href="{{ url_for('catalog.catalogo') }}"
+			class="btn btn-outline-dark btn-sm rounded-pill px-3">
+			Ver todo
+		</a>
+	</div>
+
+	{% if destacados %}
+	<div class="row g-3">
+		{% for p in destacados %} {% set p_img = url_for('static', filename=p.imagen) if p.imagen and
+		p.imagen.startswith('img/') else (p.imagen if p.imagen and (p.imagen.startswith('http') or
+		p.imagen.startswith('data:')) else
+		'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=900&q=80')
+		%}
+		<div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+			<article class="portal-product-card">
+				<div class="portal-product-media">
+					{% if p.imagen and (p.imagen.startswith('http') or p.imagen.startswith('data:') or
+					p.imagen.startswith('img/')) %}
+					<img
+						src="{{ url_for('static', filename=p.imagen) if p.imagen.startswith('img/') else p.imagen }}"
+						alt="{{ p.nombre }}" />
+					{% else %}
+					<span style="font-size: 4rem">{{ p.imagen or '🍰' }}</span>
+					{% endif %}
+				</div>
+				<div class="portal-product-body">
+					<span class="portal-chip">
+						<i class="bi bi-heart-fill"></i>
+						Recomendado
+					</span>
+					<h3 class="portal-product-title">{{ p.nombre }}</h3>
+					<p class="portal-product-desc">{{ p.descripcion }}</p>
+					<div class="portal-price-row">
+						<span class="portal-price">${{ '%.2f'|format(p.precio_venta) }}</span>
+						<a href="{{ url_for('catalog.catalogo') }}" class="btn btn-primary btn-sm px-3">
+							Ver detalle
+						</a>
+					</div>
+				</div>
+			</article>
+		</div>
+		{% endfor %}
+	</div>
+	{% else %}
+	<div class="portal-empty">
+		<i class="bi bi-cake2" style="font-size: 2rem"></i>
+		<p class="mb-0 mt-2">No hay destacados disponibles por el momento.</p>
+	</div>
+	{% endif %}
+</section>
+
+{% endblock %}
