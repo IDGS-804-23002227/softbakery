@@ -8,7 +8,7 @@ class DevelopmentConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-softbakery-key")
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL",
-        "mysql+pymysql://root:alejandro.com13@127.0.0.1/softbakery2?charset=utf8mb4",
+        "mysql+pymysql://softbakery_app2:SofitiBakerytididi@127.0.0.1/softbakery2?charset=utf8mb4",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SESSION_COOKIE_HTTPONLY = True
